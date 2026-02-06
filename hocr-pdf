@@ -161,20 +161,21 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
         words_info.sort(key=lambda w: w["box"][0])
 
         # --- BUILD LINE STRING ---
-        #line_text = " ".join(
-        #    reverse_handler[reverse](w["raw"], line_rtl) for w in words_info
-        #)
-        line_text = " ".join(w["fixed"] for w in words_info)
+        line_text = " ".join(
+            reverse_handler[reverse](w["raw"]) for w in words_info
+        )
 
         # --- GEOMETRY: use full line box ---
         x0 = min(w["box"][0] for w in words_info)
         x1 = max(w["box"][2] for w in words_info)
 
         box_height = max(w["box"][3] - w["box"][1] for w in words_info)
-        font_size = int(box_height * scale_to_pts * 2.0)
+        font_size = int(box_height * scale_to_pts * 0.75)
+        logging.debug(f"font size: {font_size}")
 
         font_name = "CourierNew"
         font_width = pdf.stringWidth(line_text, font_name, font_size)
+        logging.debug(f"font width: {font_width}")
         if font_width <= 0:
             continue
 
@@ -187,7 +188,11 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
         text.setTextOrigin(x0 * scale_to_pts, height - b * scale_to_pts)
 
         line_width = (x1 - x0) * scale_to_pts
-        text.setHorizScale(100.0 * line_width / font_width)
+        logging.debug(f"line width: {line_width}")
+
+        horiz_scale = 100.0 * line_width / font_width
+        logging.debug(f"horizontal scale: {horiz_scale}")
+        text.setHorizScale(horiz_scale)
 
         # EXACTLY ONE CALL
         text.textLine(line_text)
@@ -427,10 +432,9 @@ def is_rtl_lang(lang):
 
 
 reverse_handler = {
-   #"auto": lambda s, rtl: wrap_isolate(fix_word(s), rtl),
-    "auto": lambda s, rtl: fix_word(s),
-    "yes":  lambda s, rtl: s[::-1],
-    "no":   lambda s, rtl: s,
+    "auto": lambda s: fix_word(s),
+    "yes":  lambda s: s[::-1],
+    "no":   lambda s: s,
 }
 
 
