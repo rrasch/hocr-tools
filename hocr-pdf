@@ -30,7 +30,6 @@ import sys
 import unicodedata
 import zlib
 
-from bidi.algorithm import get_display
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
