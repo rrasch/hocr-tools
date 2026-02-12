@@ -37,7 +37,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "file",
     help="hOCR file",
-    type=argparse.FileType('r'),
+    type=argparse.FileType('rb'),
     nargs='?',
     default=sys.stdin)
 parser.add_argument("-b", "--basename", help="image-dir")
