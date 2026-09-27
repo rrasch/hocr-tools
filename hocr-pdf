@@ -30,12 +30,14 @@ import sys
 import unicodedata
 import zlib
 
+from lxml import html
+from PIL import Image
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
+from tqdm import tqdm
 
-from lxml import etree, html
-from PIL import Image
+logger = logging.getLogger(__name__)
 
 
 class StdoutWrapper:
@@ -51,7 +53,7 @@ class StdoutWrapper:
         sys.stdout.write(data)
 
 
-def export_pdf(playground, default_dpi, reverse, savefile=False):
+def export_pdf(playground, default_dpi, reverse, savefile=False, progress=False):
     """Create a searchable PDF from a pile of HOCR + JPEG"""
     images = sorted(glob.glob(os.path.join(playground, '*.jpg')))
     if len(images) == 0:
@@ -62,10 +64,10 @@ def export_pdf(playground, default_dpi, reverse, savefile=False):
     pdf = Canvas(savefile if savefile else StdoutWrapper(), pageCompression=1)
     pdf.setCreator('hocr-tools')
     pdf.setTitle(os.path.basename(playground))
-    for image in images:
+    for image in tqdm(images, desc="hocr-pdf", disable=not progress):
         im = Image.open(image)
         w, h = im.size
-        logging.debug("image dimensions (%s): %s", image, im.size)
+        logger.debug("image dimensions (%s): %s", image, im.size)
         dpi = im.info['dpi'][0]
         width = w * 72 / dpi
         height = h * 72 / dpi
@@ -87,7 +89,7 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
     scale_to_pts = calc_scale_pts(hocr, dpi, img_width)
 
     lang = get_language(hocr)
-    logging.debug("language %s: %s", hocrfile, lang)
+    logger.debug("language %s: %s", hocrfile, lang)
 
     if reverse == "lang":
         if lang:
@@ -97,7 +99,7 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
 
     line_xpath = '//*[@class="ocr_line" or @class="ocrx_line"]'
     for i, line in enumerate(hocr.xpath(line_xpath), start=1):
-        logging.debug(f"Processing LINE #{i}")
+        logger.debug(f"Processing LINE #{i}")
 
         linebox = p1.search(line.attrib['title']).group(1).split()
         try:
@@ -147,7 +149,7 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
                 "box": box,
                 "elem": word,  # optional: original element if you need it
             }
-            logging.debug("word:\n%s", pp.pformat(word_data))
+            logger.debug("word:\n%s", pp.pformat(word_data))
             words_info.append(word_data)
 
         # decide line direction once
@@ -170,11 +172,11 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
 
         box_height = max(w["box"][3] - w["box"][1] for w in words_info)
         font_size = int(box_height * scale_to_pts * 0.75)
-        logging.debug(f"font size: {font_size}")
+        logger.debug(f"font size: {font_size}")
 
         font_name = "CourierNew"
         font_width = pdf.stringWidth(line_text, font_name, font_size)
-        logging.debug(f"font width: {font_width}")
+        logger.debug(f"font width: {font_width}")
         if font_width <= 0:
             continue
 
@@ -187,10 +189,10 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
         text.setTextOrigin(x0 * scale_to_pts, height - b * scale_to_pts)
 
         line_width = (x1 - x0) * scale_to_pts
-        logging.debug(f"line width: {line_width}")
+        logger.debug(f"line width: {line_width}")
 
         horiz_scale = 100.0 * line_width / font_width
-        logging.debug(f"horizontal scale: {horiz_scale}")
+        logger.debug(f"horizontal scale: {horiz_scale}")
         text.setHorizScale(horiz_scale)
 
         # EXACTLY ONE CALL
@@ -231,7 +233,7 @@ CMGjwvxTsr74/f/F95m3TH9x8o0/TU//N+7/D/ScVcA=
 """.encode('latin1')
     uncompressed = bytearray(zlib.decompress(base64.b64decode(font)))
     ttf = io.BytesIO(uncompressed)
-    setattr(ttf, "name", "(invisible.ttf)")
+    ttf.name = "(invisible.ttf)"
     pdfmetrics.registerFont(TTFont('invisible', ttf))
 
 
@@ -243,9 +245,9 @@ def trace(func):
         kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
         signature = ", ".join(args_repr + kwargs_repr)
 
-        logging.debug("Calling %s(%s)", func.__name__, signature)
+        logger.debug("Calling %s(%s)", func.__name__, signature)
         result = func(*args, **kwargs)
-        logging.debug("%s(%s) returned %r", func.__name__, signature, result)
+        logger.debug("%s(%s) returned %r", func.__name__, signature, result)
         return result
     return wrapper
 
@@ -320,7 +322,7 @@ def calc_scale_pts(hocr, dpi, img_width):
     """
     bbox = get_page_bbox(hocr)
     scale = img_width / bbox["width"] if bbox else 1.0
-    logging.debug("scale hocr: %s", scale)
+    logger.debug("scale hocr: %s", scale)
     scale *= 72 / dpi
     return scale
 
@@ -447,10 +449,12 @@ if __name__ == "__main__":
               "their respective file ending)")
     )
     parser.add_argument(
+        "-s",
         "--savefile",
-        help="Save to this file instead of outputting to stdout"
+        help="Save to this file instead of outputting to stdout",
     )
     parser.add_argument(
+        "-r",
         "--reverse",
         choices=["auto", "lang", "yes", "no"],
         default="auto",
@@ -463,7 +467,16 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "-d", "--debug", action="store_true", help="Enable debugging"
+        "-p",
+        "--progress",
+        action="store_true",
+        help="Show progress bar",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Enable debugging",
     )
     args = parser.parse_args()
 
@@ -474,6 +487,9 @@ if __name__ == "__main__":
         level=level,
     )
 
+    progress = args.progress and sys.stderr.isatty()
+
     if not os.path.isdir(args.imgdir):
         sys.exit(f"ERROR: Given path '{args.imgdir}' is not a directory")
-    export_pdf(args.imgdir, 300, args.reverse, args.savefile)
+
+    export_pdf(args.imgdir, 300, args.reverse, args.savefile, progress)

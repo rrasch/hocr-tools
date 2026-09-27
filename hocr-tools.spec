@@ -31,6 +31,7 @@ BuildRequires:  wget
 Requires:       msttcore-fonts-installer
 Requires:       python3-reportlab
 Requires:       python3-imaging
+Requires:       python3-tqdm
 
 %description
 A collection of Python tools for working with hOCR data.
@@ -84,6 +85,10 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sun Sep 27 2026 Rasan Rasch - 1.4.1-1
+- Update to 1.4.1
+- Add progress bar with tqdm
+
 * Thu Feb 12 2026 Rasan Rasch - 1.4.0-1
 - Update to 1.4.0
 
