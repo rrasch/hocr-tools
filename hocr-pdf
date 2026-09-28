@@ -153,7 +153,7 @@ def add_text_layer(pdf, image, height, dpi, img_width, reverse):
             words_info.append(word_data)
 
         # decide line direction once
-        line_rtl = (total_chars > 0) and ((arabic_chars / total_chars) > 0.35)
+        _line_rtl = (total_chars > 0) and ((arabic_chars / total_chars) > 0.35)
 
         if not words_info:
             continue
