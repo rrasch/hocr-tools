@@ -23,6 +23,7 @@ BuildRequires:  pdfgrep
 BuildRequires:  python3-devel
 BuildRequires:  python3-reportlab
 BuildRequires:  python3-lxml
+BuildRequires:  python3-tqdm
 BuildRequires:  libxml2-devel
 BuildRequires:  libxslt-devel
 BuildRequires:  libjpeg-turbo-devel
@@ -56,6 +57,9 @@ cd %{_buildsubdir}
 rm -rf %{buildroot}
 cd %{_buildsubdir}
 %py3_install
+
+# setup.py adds hocr-tools.spec to scripts
+rm -rf %{buildroot}%{_bindir}/hocr-tools.spec
 
 %check
 cd %{_buildsubdir}
